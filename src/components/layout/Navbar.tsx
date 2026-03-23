@@ -64,6 +64,9 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
           <Link to="/tipos-aprendizaje" className="hover:text-indigo-600 hover:bg-indigo-50/80 px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap">
             Tipos de aprendizaje
           </Link>
+          <Link to="/quiz" className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap font-bold shadow-sm">
+            🧠 Hacer el Test
+          </Link>
           
           <div className="flex items-center gap-4 ml-2 xl:ml-4 border-l-2 border-slate-200 pl-6 xl:pl-8">
             <a href="#" className="text-slate-400 hover:text-pink-500 hover:scale-110 transition-all" aria-label="Instagram">
@@ -140,6 +143,9 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
                 </Link>
                 <Link to="/tipos-aprendizaje" onClick={closeMobileMenu} className="hover:text-indigo-600 hover:bg-indigo-50/80 p-3 rounded-xl transition-all duration-200">
                   Tipos de aprendizaje
+                </Link>
+                <Link to="/quiz" onClick={closeMobileMenu} className="bg-indigo-600 text-white p-3 rounded-xl transition-all duration-200 font-bold text-center">
+                  🧠 Hacer el Test
                 </Link>
               </div>
               

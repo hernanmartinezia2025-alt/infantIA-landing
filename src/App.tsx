@@ -14,6 +14,7 @@ import { Home } from './pages/Home';
 import { About } from './pages/About';
 import { Future } from './pages/Future';
 import { LearningTypes } from './pages/LearningTypes';
+import { QuizPage } from './pages/QuizPage';
 
 export default function App() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/quienes-somos" element={<About />} />
             <Route path="/futuro" element={<Future />} />
             <Route path="/tipos-aprendizaje" element={<LearningTypes />} />
+            <Route path="/quiz" element={<QuizPage />} />
           </Routes>
         </main>
 
