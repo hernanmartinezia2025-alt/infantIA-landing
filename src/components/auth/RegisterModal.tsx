@@ -27,37 +27,41 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     setValidationError('');
     setIsLoading(true);
     try {
+      // Step 1: Google Auth (critical)
       const result = await signInWithPopup(auth, googleProvider);
       const loggedInUser = result.user;
-      
-      // Check if user exists in Firestore
-      const userRef = doc(db, 'users', loggedInUser.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        // Create new user profile
-        await setDoc(userRef, {
-          uid: loggedInUser.uid,
-          email: loggedInUser.email,
-          displayName: loggedInUser.displayName,
-          photoURL: loggedInUser.photoURL,
-          role: 'user',
-          childName: childName.trim(),
-          childAge: parseInt(childAge, 10),
-          createdAt: new Date()
-        });
-      } else {
-        // Update existing user with child info
-        await setDoc(userRef, {
-          childName: childName.trim(),
-          childAge: parseInt(childAge, 10),
-        }, { merge: true });
+
+      // Step 2: Firestore profile save (non-critical — won't block sign-in)
+      try {
+        const userRef = doc(db, 'users', loggedInUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            uid: loggedInUser.uid,
+            email: loggedInUser.email,
+            displayName: loggedInUser.displayName,
+            photoURL: loggedInUser.photoURL,
+            role: 'user',
+            childName: childName.trim(),
+            childAge: parseInt(childAge, 10),
+            createdAt: new Date()
+          });
+        } else {
+          await setDoc(userRef, {
+            childName: childName.trim(),
+            childAge: parseInt(childAge, 10),
+          }, { merge: true });
+        }
+      } catch (firestoreError) {
+        // Firestore unavailable (ad blocker, DB not created, offline)
+        // Auth already succeeded — profile will sync later
+        console.warn("Could not save profile to Firestore. Sign-in still succeeded.", firestoreError);
       }
+
       onClose();
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, ignore gracefully
-        console.log("Sign-in popup closed by user");
+        console.log("Sign-in popup closed by user.");
       } else {
         console.error("Error signing in with Google", error);
       }

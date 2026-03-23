@@ -1,10 +1,10 @@
 {
-  "projectId": "project-a258e16a-00ec-4667-a1f",
-  "appId": "1:489812176366:web:e873ef46fdedc110cff2ff",
-  "apiKey": "AIzaSyDTq-CLoVZmIKWa7AXfIZCf2QxRfTiItdI",
-  "authDomain": "project-a258e16a-00ec-4667-a1f.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-1136ff43-60b8-4f26-a170-d2061c68210f",
-  "storageBucket": "project-a258e16a-00ec-4667-a1f.firebasestorage.app",
-  "messagingSenderId": "489812176366",
-  "measurementId": ""
+  "projectId": "infantia-2e4cd",
+  "appId": "1:867479009613:web:c0d578bd376bfb16339f04",
+  "apiKey": "AIzaSyCHARIbxtzvCvprN_-3lNGVHL9Y-cLQOBI",
+  "authDomain": "infantia-2e4cd.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "infantia-2e4cd.firebasestorage.app",
+  "messagingSenderId": "867479009613",
+  "measurementId": "G-9DPL75XC7E"
 }
