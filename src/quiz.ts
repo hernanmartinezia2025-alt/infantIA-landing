@@ -431,20 +431,23 @@ export const QUESTIONS: Question[] = [
   },
 ]
 
-// ─── FIRESTORE PROFILE SHAPE (client-safe) ───────────────────
+// ─── FIRESTORE SHAPES (client-safe) ──────────────────────────
+
+export interface FirestoreChild {
+  userId: string
+  name: string
+  age: number
+  createdAt: unknown  // serverTimestamp() at write time
+}
 
 export interface FirestoreProfile {
-  userId: string | null
-  childName: string
-  childAge: number
-  parentEmail: string | null
+  userId: string
+  childId: string
   answers: Record<string, AnswerValue>
   scores: DimensionScores
   primaryProfileId: ProfileId
   secondaryProfileId: ProfileId | null
   confidence: "alta" | "media" | "baja"
-  source: "landing_test"
   createdAt: unknown  // serverTimestamp() at write time
-  emailSent: boolean
-  gdprConsent: boolean
+  scoringVersion: string
 }

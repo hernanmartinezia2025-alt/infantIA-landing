@@ -67,8 +67,13 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
           <Link to="/quiz" className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap font-bold shadow-sm">
             🧠 Hacer el Test
           </Link>
+          {user && (
+            <Link to="/mi-analisis" className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap font-bold border border-purple-200">
+              ✨ Tu Análisis
+            </Link>
+          )}
           
-          <div className="flex items-center gap-4 ml-2 xl:ml-4 border-l-2 border-slate-200 pl-6 xl:pl-8">
+          <div className="flex items-center gap-4 ml-2 xl:ml-4 border-l-2 border-slate-200 pl-6 xl:pl-8 pr-4 xl:pr-6 border-r-2">
             <a href="#" className="text-slate-400 hover:text-pink-500 hover:scale-110 transition-all" aria-label="Instagram">
               <Instagram size={20} />
             </a>
@@ -84,7 +89,7 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 ml-auto lg:ml-0 shrink-0">
+        <div className="flex items-center gap-3 ml-auto lg:ml-4 shrink-0">
           {user && (
             <div className="flex items-center gap-3">
               <img src={user.photoURL || ''} alt={user.displayName || 'User'} className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-indigo-200" referrerPolicy="no-referrer" />
@@ -107,12 +112,6 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
                 Iniciar Sesión
               </button>
             )}
-            <button 
-              onClick={onRegisterClick}
-              className="bg-amber-400 hover:bg-amber-500 text-amber-950 font-black py-2.5 px-5 xl:px-6 rounded-full shadow-sm transition-transform hover:scale-105 text-sm whitespace-nowrap"
-            >
-              ¡Empezar a jugar!
-            </button>
           </div>
 
           <button 
@@ -147,6 +146,11 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
                 <Link to="/quiz" onClick={closeMobileMenu} className="bg-indigo-600 text-white p-3 rounded-xl transition-all duration-200 font-bold text-center">
                   🧠 Hacer el Test
                 </Link>
+                {user && (
+                  <Link to="/mi-analisis" onClick={closeMobileMenu} className="bg-purple-50 text-purple-700 border border-purple-200 p-3 rounded-xl transition-all duration-200 font-bold text-center">
+                    ✨ Tu Análisis
+                  </Link>
+                )}
               </div>
               
               <hr className="border-slate-100" />
@@ -184,12 +188,6 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
                     Iniciar Sesión
                   </button>
                 )}
-                <button 
-                  onClick={() => { onRegisterClick(); closeMobileMenu(); }} 
-                  className="bg-amber-400 hover:bg-amber-500 text-amber-950 font-black py-3 px-5 rounded-xl text-center shadow-sm transition-colors"
-                >
-                  ¡Empezar a jugar!
-                </button>
               </div>
             </motion.div>
           )}

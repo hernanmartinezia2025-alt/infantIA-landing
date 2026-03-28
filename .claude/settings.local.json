@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/Usuario/Desktop/infantia-main/infantIA-landing -type f \\\\\\(-name *db* -o -name *config* -o -name *service*account* \\\\\\))"
+    ]
+  }
+}

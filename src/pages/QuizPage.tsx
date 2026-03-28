@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, ChevronLeft, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
 import { auth, db, doc, setDoc, collection } from '../firebase';
-import { serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, orderBy, limit, query, where, getDocs } from 'firebase/firestore';
 import {
   QUESTIONS,
   PROFILES,
@@ -122,8 +122,7 @@ function IntroPhase({
               value={childName}
               onChange={e => setChildName(e.target.value)}
               placeholder="Ej. Mateo"
-              disabled={prefilled}
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors disabled:bg-slate-50 disabled:text-slate-500 font-medium"
+              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors font-medium"
             />
           </div>
 
@@ -135,8 +134,7 @@ function IntroPhase({
               id="childAge"
               value={childAge}
               onChange={e => setChildAge(e.target.value)}
-              disabled={prefilled}
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-500 font-medium"
+              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors bg-white font-medium"
             >
               <option value="" disabled>Seleccioná una edad</option>
               {[3, 4, 5, 6, 7, 8, 9, 10].map(age => (
@@ -261,12 +259,13 @@ function QuestionsPhase({
 // ─── Phase 3: Results ────────────────────────────────────────
 
 function ResultsPhase({
-  result, childName, isSaving, saveError, onReset
+  result, childName, isSaving, saveError, emailStatus, onReset
 }: {
   result: ProfileResult;
   childName: string;
   isSaving: boolean;
   saveError: string | null;
+  emailStatus: 'idle' | 'sending' | 'sent' | 'error';
   onReset: () => void;
 }) {
   const { primaryProfile, secondaryProfile, scores, confidence } = result;
@@ -297,21 +296,41 @@ function ResultsPhase({
 
       {/* Save status */}
       {isSaving && (
-        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 mb-6 text-indigo-700 font-medium">
+        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4 mb-4 text-indigo-700 font-medium">
           <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
           Guardando resultado en tu perfil...
         </div>
       )}
       {!isSaving && !saveError && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mb-6 text-emerald-700 font-medium">
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mb-4 text-emerald-700 font-medium">
           <CheckCircle size={20} />
           Resultado guardado correctamente.
         </div>
       )}
       {saveError && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6 text-amber-700 font-medium">
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-4 text-amber-700 font-medium">
           <AlertCircle size={20} />
           {saveError}
+        </div>
+      )}
+
+      {/* Email status */}
+      {emailStatus === 'sending' && (
+        <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-2xl px-5 py-4 mb-6 text-sky-700 font-medium">
+          <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+          Enviando el análisis a tu correo...
+        </div>
+      )}
+      {emailStatus === 'sent' && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mb-6 text-emerald-700 font-medium">
+          <CheckCircle size={20} />
+          📧 ¡Análisis enviado! Revisá tu correo.
+        </div>
+      )}
+      {emailStatus === 'error' && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-6 text-amber-700 font-medium">
+          <AlertCircle size={20} />
+          No se pudo enviar el email, pero el análisis está guardado en tu cuenta.
         </div>
       )}
 
@@ -439,19 +458,25 @@ export function QuizPage() {
   const [result, setResult] = useState<ProfileResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [prefilled, setPrefilled] = useState(false);
 
-  // Pre-fill from Firebase Auth / Firestore if logged in
+  // Pre-fill from the user's first child if logged in
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       try {
-        const { getDoc, doc: fsDoc } = await import('firebase/firestore');
-        const snap = await getDoc(fsDoc(db, 'users', user.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.childName) { setChildName(data.childName); setPrefilled(true); }
-          if (data.childAge)  { setChildAge(String(data.childAge)); }
+        const q = query(
+          collection(db, 'children'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'asc'),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const child = snap.docs[0].data();
+          if (child.name) { setChildName(child.name); setPrefilled(true); }
+          if (child.age)  { setChildAge(String(child.age)); }
         }
       } catch { /* Firestore may be unavailable */ }
     });
@@ -473,45 +498,83 @@ export function QuizPage() {
     const profileResult = resolveProfiles(scores);
     setResult(profileResult);
     setPhase('results');
-    await saveToFirestore(profileResult, scores);
+    await saveAndEmail(profileResult, scores);
   };
 
-  const saveToFirestore = async (profileResult: ProfileResult, scores: DimensionScores) => {
+  const saveAndEmail = async (profileResult: ProfileResult, scores: DimensionScores) => {
+    const user = auth.currentUser;
+
+    // ── Not logged in — show results only, don't save anything ──
+    if (!user) return;
+
+    // ── 1. Firestore save ──
     setIsSaving(true);
     setSaveError(null);
     try {
-      const user = auth.currentUser;
-      const newDocRef = doc(collection(db, 'profiles'));
+      // Create a child document for this quiz session
+      const childRef = doc(collection(db, 'children'));
+      await setDoc(childRef, {
+        userId: user.uid,
+        name: childName.trim(),
+        age: parseInt(childAge, 10),
+        createdAt: serverTimestamp(),
+      });
 
+      const newDocRef = doc(collection(db, 'profiles'));
       await setDoc(newDocRef, {
-        userId: user?.uid || null,
-        childName: childName.trim(),
-        childAge: parseInt(childAge, 10),
-        parentEmail: user?.email || null,
+        userId: user.uid,
+        childId: childRef.id,
         answers,
         scores,
         primaryProfileId: profileResult.primaryProfile.id,
         secondaryProfileId: profileResult.secondaryProfile?.id || null,
         confidence: profileResult.confidence,
-        source: 'landing_test',
         createdAt: serverTimestamp(),
-        emailSent: false,
-        gdprConsent: true,
+        scoringVersion: '1.0',
       });
-
-      // If logged in, update user doc with reference to latest profile
-      if (user) {
-        await setDoc(
-          doc(db, 'users', user.uid),
-          { latestProfileId: newDocRef.id, latestProfileAt: serverTimestamp() },
-          { merge: true }
-        );
-      }
     } catch (err) {
       console.warn('Firestore save failed:', err);
       setSaveError('No se pudo guardar el resultado en la nube. El análisis es válido de todas formas.');
     } finally {
       setIsSaving(false);
+    }
+
+    // ── 2. Send email ──
+    if (!user.email) return;
+
+    setEmailStatus('sending');
+    try {
+      const { primaryProfile, secondaryProfile, confidence } = profileResult;
+      const resp = await fetch('/api/send-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          childName: childName.trim(),
+          childAge: parseInt(childAge, 10),
+          primaryProfileName: primaryProfile.name,
+          primaryProfileIcon: primaryProfile.icon,
+          primaryProfileTagline: primaryProfile.tagline,
+          primaryProfileDescription: primaryProfile.description,
+          primaryProfileColor: primaryProfile.color,
+          secondaryProfileName: secondaryProfile?.name || null,
+          secondaryProfileIcon: secondaryProfile?.icon || null,
+          strengths: primaryProfile.strengths,
+          challenges: primaryProfile.challenges,
+          adaptations: primaryProfile.infantiaAdaptation,
+          scores,
+          confidence,
+        }),
+      });
+      const json = await resp.json();
+      if (json.success) {
+        setEmailStatus('sent');
+      } else {
+        throw new Error(json.error || 'unknown');
+      }
+    } catch (err) {
+      console.warn('Email send failed:', err);
+      setEmailStatus('error');
     }
   };
 
@@ -520,6 +583,7 @@ export function QuizPage() {
     setCurrentIndex(0);
     setResult(null);
     setSaveError(null);
+    setEmailStatus('idle');
     setPhase('intro');
   };
 
@@ -558,6 +622,7 @@ export function QuizPage() {
               childName={childName}
               isSaving={isSaving}
               saveError={saveError}
+              emailStatus={emailStatus}
               onReset={handleReset}
             />
           )}

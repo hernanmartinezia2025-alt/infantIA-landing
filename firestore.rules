@@ -2,24 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required) - User's Firebase Auth UID
-    //   - email: string (required) - User's email address
-    //   - displayName: string (optional) - User's display name
-    //   - photoURL: string (optional) - User's profile picture URL
-    //   - role: string (required) - User's role ('user' or 'admin')
-    //   - learningProfile: map (optional) - Child's learning profile
-    //   - createdAt: timestamp (required) - Creation timestamp
-    // ===============================================================
 
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
+    // ── Helpers ────────────────────────────────────────────────
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -35,62 +20,64 @@ service cloud.firestore {
       );
     }
 
-    function uidUnchanged() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
-    }
-
-    function uidNotModified() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
-    }
-
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
-    }
+    // ── users/{userId} ─────────────────────────────────────────
+    // Fields: email, displayName (opt), photoURL (opt), role, learningProfile (opt), createdAt
 
     function isValidUser(data) {
-      let allowedKeys = ['uid', 'email', 'displayName', 'photoURL', 'role', 'learningProfile', 'createdAt'];
-      let hasOnlyAllowed = data.keys().hasOnly(allowedKeys);
-      let validUid = data.uid is string && data.uid.size() > 0 && data.uid.size() < 100;
-      let validEmail = data.email is string && isValidEmail(data.email);
-      let validRole = data.role in ['user', 'admin'];
-      let validCreatedAt = data.createdAt is timestamp;
-      
-      let validDisplayName = !('displayName' in data) || (data.displayName is string && data.displayName.size() < 100);
-      let validPhotoURL = !('photoURL' in data) || (data.photoURL is string && isValidUrl(data.photoURL) && data.photoURL.size() < 1000);
-      let validLearningProfile = !('learningProfile' in data) || (data.learningProfile is map);
-
-      return hasOnlyAllowed && validUid && validEmail && validRole && validCreatedAt && validDisplayName && validPhotoURL && validLearningProfile;
+      let allowedKeys = ['email', 'displayName', 'photoURL', 'role', 'learningProfile', 'createdAt'];
+      return data.keys().hasOnly(allowedKeys)
+        && data.email is string
+        && data.role in ['user', 'admin']
+        && data.createdAt is timestamp;
     }
 
-    // ===============================================================
-    // Rules
-    // ===============================================================
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      
-      allow create: if isAuthenticated() && 
-                    isOwner(userId) && 
-                    hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
-                    isValidUser(request.resource.data) && 
-                    uidUnchanged() && 
-                    (request.resource.data.role == 'user' || isAdmin());
-                    
-      allow update: if isAuthenticated() && 
-                    isOwner(userId) && 
-                    isValidUser(request.resource.data) && 
-                    uidNotModified() && 
-                    (request.resource.data.role == resource.data.role || isAdmin()) &&
-                    request.resource.data.createdAt == resource.data.createdAt;
-                    
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data)
+                    && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if isAdmin();
     }
+
+    // ── children/{childId} ─────────────────────────────────────
+    // Fields: userId, name, age, createdAt
+
+    function isValidChild(data) {
+      return data.userId is string
+        && data.name is string && data.name.size() > 0
+        && data.age is number && data.age >= 0 && data.age <= 18
+        && data.createdAt is timestamp;
+    }
+
+    match /children/{childId} {
+      allow read:   if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && isValidChild(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // ── profiles/{profileId} ───────────────────────────────────
+    // Fields: userId, childId, answers, scores, primaryProfileId,
+    //         secondaryProfileId, confidence, createdAt, scoringVersion
+
+    function isValidProfile(data) {
+      return data.userId is string
+        && data.childId is string
+        && data.answers is map
+        && data.scores is map
+        && data.createdAt is timestamp
+        && data.scoringVersion is string;
+    }
+
+    match /profiles/{profileId} {
+      allow read:   if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && isValidProfile(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
   }
 }

@@ -15,6 +15,7 @@ import { About } from './pages/About';
 import { Future } from './pages/Future';
 import { LearningTypes } from './pages/LearningTypes';
 import { QuizPage } from './pages/QuizPage';
+import { MyAnalysisPage } from './pages/MyAnalysisPage';
 
 export default function App() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/futuro" element={<Future />} />
             <Route path="/tipos-aprendizaje" element={<LearningTypes />} />
             <Route path="/quiz" element={<QuizPage />} />
+            <Route path="/mi-analisis" element={<MyAnalysisPage onLoginClick={() => setIsRegisterModalOpen(true)} />} />
           </Routes>
         </main>
 
