@@ -28,26 +28,6 @@
           "enum": ["user", "admin"],
           "description": "The user's role."
         },
-        "learningProfile": {
-          "type": "object",
-          "description": "The child's learning profile.",
-          "properties": {
-            "learningStyle": {
-              "type": "string",
-              "description": "The child's primary learning style (e.g., visual, auditory, kinesthetic)."
-            },
-            "strengths": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "The child's strengths."
-            },
-            "interests": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "The child's interests."
-            }
-          }
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -55,12 +35,91 @@
         }
       },
       "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Child": {
+      "title": "Child",
+      "description": "A child belonging to a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the parent user."
+        },
+        "name": {
+          "type": "string",
+          "description": "The child's name."
+        },
+        "age": {
+          "type": "number",
+          "description": "The child's age in years."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the child record was created."
+        }
+      },
+      "required": ["userId", "name", "age", "createdAt"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "A learning profile result for a specific child, generated from a quiz.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the parent user."
+        },
+        "childId": {
+          "type": "string",
+          "description": "The ID of the child this profile belongs to."
+        },
+        "answers": {
+          "type": "object",
+          "description": "Map of question IDs to answer values (1–4)."
+        },
+        "scores": {
+          "type": "object",
+          "description": "Normalized dimension scores (0–100) for each learning dimension."
+        },
+        "primaryProfileId": {
+          "type": "string",
+          "description": "ID of the dominant learning profile."
+        },
+        "secondaryProfileId": {
+          "type": ["string", "null"],
+          "description": "ID of the secondary learning profile, if any."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["alta", "media", "baja"],
+          "description": "Confidence level of the profile result."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the profile was created."
+        },
+        "scoringVersion": {
+          "type": "string",
+          "description": "Version of the scoring algorithm used."
+        }
+      },
+      "required": ["userId", "childId", "answers", "scores", "createdAt", "scoringVersion"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
-      "description": "Stores user profiles and their children's learning profiles."
+      "description": "Stores user (parent) accounts."
+    },
+    "/children/{childId}": {
+      "schema": { "$ref": "#/entities/Child" },
+      "description": "Stores child records. A user can have multiple children."
+    },
+    "/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "Stores learning profile results. A child can have multiple profiles over time."
     }
   }
 }
