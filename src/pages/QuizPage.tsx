@@ -4,14 +4,17 @@ import { ChevronRight, ChevronLeft, RotateCcw, CheckCircle, AlertCircle } from '
 import { auth, db, doc, setDoc, collection } from '../firebase';
 import { serverTimestamp, orderBy, limit, query, where, getDocs } from 'firebase/firestore';
 import {
-  QUESTIONS,
   PROFILES,
+  QUESTIONS_BY_AGE_RANGE,
   calculateScores,
   resolveProfiles,
+  getAgeRange,
   type AnswerValue,
   type ProfileResult,
   type DimensionScores,
   type Dimension,
+  type AgeRange,
+  type Question,
 } from '../quiz';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -19,21 +22,21 @@ import {
 type Phase = 'intro' | 'questions' | 'results';
 
 const DIMENSION_LABELS: Record<Dimension, string> = {
-  visual: 'Visual',
-  narrativo: 'Narrativo',
-  exploratorio: 'Explorador',
-  guiado: 'Guiado',
+  creatividad: 'Creatividad',
+  logica: 'Lógica',
   social: 'Social',
-  ritmico: 'Rítmico',
+  analitico: 'Analítico',
+  practico: 'Práctico',
+  visual: 'Visual',
 };
 
 const DIMENSION_COLORS: Record<Dimension, string> = {
-  visual: '#FF6B35',
-  narrativo: '#7C3AED',
-  exploratorio: '#0EA5E9',
-  guiado: '#10B981',
+  creatividad: '#FF6B35',
+  logica: '#0EA5E9',
   social: '#F59E0B',
-  ritmico: '#EC4899',
+  analitico: '#7C3AED',
+  practico: '#10B981',
+  visual: '#EC4899',
 };
 
 // ─── Sub-components ──────────────────────────────────────────
@@ -89,7 +92,10 @@ function IntroPhase({
   childAge: string; setChildAge: (v: string) => void;
   onStart: () => void; isLoggedIn: boolean; prefilled: boolean;
 }) {
-  const canStart = childName.trim().length > 0 && childAge !== '';
+  const ageNum = childAge ? parseInt(childAge, 10) : null;
+  const ageRange = ageNum ? getAgeRange(ageNum) : null;
+  const canStart = childName.trim().length > 0 && ageRange !== null;
+  const questionCount = ageRange ? QUESTIONS_BY_AGE_RANGE[ageRange].length : 0;
 
   return (
     <motion.div
@@ -97,12 +103,12 @@ function IntroPhase({
       animate={{ opacity: 1, y: 0 }}
       className="max-w-2xl mx-auto text-center"
     >
-      <div className="text-7xl mb-6">🧠</div>
+      <div className="text-7xl mb-6">🧒</div>
       <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 leading-tight">
         Descubrí el perfil de aprendizaje de tu hijo
       </h1>
       <p className="text-lg text-slate-600 mb-10 leading-relaxed">
-        En <strong>15 preguntas rápidas</strong> generamos un análisis personalizado
+        Respondé unas preguntas rápidas y generamos un análisis personalizado
         del estilo de aprendizaje de tu hijo/a. Sin registrarte, sin pagar — gratis ahora.
       </p>
 
@@ -142,18 +148,24 @@ function IntroPhase({
               ))}
             </select>
           </div>
+
+          {ageRange && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-sm text-indigo-700">
+              Rango etario: <strong>{ageRange} años</strong> — {questionCount} preguntas adaptadas a esta edad.
+            </div>
+          )}
         </div>
 
         {!isLoggedIn && (
           <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            💡 <strong>Iniciá sesión</strong> para que el resultado quede guardado en tu cuenta y puedas consultarlo después.
+            <strong>Iniciá sesión</strong> para que el resultado quede guardado en tu cuenta y puedas consultarlo después.
           </p>
         )}
       </div>
 
       <div className="flex items-center justify-center gap-6 text-sm text-slate-500 mb-8">
         <div className="flex items-center gap-2"><span className="text-xl">⏱️</span> ~3 minutos</div>
-        <div className="flex items-center gap-2"><span className="text-xl">💬</span> 15 preguntas</div>
+        <div className="flex items-center gap-2"><span className="text-xl">💬</span> {questionCount > 0 ? `${questionCount} preguntas` : 'Preguntas adaptadas'}</div>
         <div className="flex items-center gap-2"><span className="text-xl">🎯</span> Resultado inmediato</div>
       </div>
 
@@ -171,18 +183,21 @@ function IntroPhase({
 // ─── Phase 2: Questions ──────────────────────────────────────
 
 function QuestionsPhase({
-  answers, onAnswer, currentIndex, setCurrentIndex, onFinish
+  questions, answers, onAnswer, currentIndex, setCurrentIndex, onFinish
 }: {
+  questions: Question[];
   answers: Record<string, AnswerValue>;
   onAnswer: (id: string, value: AnswerValue) => void;
   currentIndex: number;
   setCurrentIndex: (i: number) => void;
   onFinish: () => void;
 }) {
-  const question = QUESTIONS[currentIndex];
+  const question = questions[currentIndex];
   const selectedValue = answers[question.id];
-  const isLast = currentIndex === QUESTIONS.length - 1;
+  const isLast = currentIndex === questions.length - 1;
   const isFirst = currentIndex === 0;
+
+  const labels = question.scaleLabels || ["Casi nunca", "A veces", "Seguido", "Casi siempre"];
 
   const answerColors = [
     'hover:border-rose-400 hover:bg-rose-50 data-[selected=true]:border-rose-400 data-[selected=true]:bg-rose-50 data-[selected=true]:text-rose-700',
@@ -207,7 +222,7 @@ function QuestionsPhase({
       transition={{ duration: 0.3 }}
       className="max-w-2xl mx-auto"
     >
-      <ProgressBar current={currentIndex + 1} total={QUESTIONS.length} />
+      <ProgressBar current={currentIndex + 1} total={questions.length} />
 
       <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 mb-6">
         <p className="text-2xl font-bold text-slate-800 leading-snug mb-2">{question.text}</p>
@@ -217,7 +232,7 @@ function QuestionsPhase({
         {!question.subtext && <div className="mb-6" />}
 
         <div className="grid grid-cols-2 gap-3">
-          {question.answerLabels.map((label, i) => {
+          {labels.map((label, i) => {
             const value = (i + 1) as AnswerValue;
             const isSelected = selectedValue === value;
             return (
@@ -268,7 +283,7 @@ function ResultsPhase({
   emailStatus: 'idle' | 'sending' | 'sent' | 'error';
   onReset: () => void;
 }) {
-  const { primaryProfile, secondaryProfile, scores, confidence } = result;
+  const { primary, secondary, scores, confidence, ageRange } = result;
 
   const confidenceLabel = {
     alta: 'Perfil claro y consistente',
@@ -284,14 +299,19 @@ function ResultsPhase({
     >
       {/* Header */}
       <div className="text-center mb-10">
-        <div className="text-6xl mb-4">{primaryProfile.icon}</div>
+        <div
+          className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl font-black text-white"
+          style={{ backgroundColor: primary.color }}
+        >
+          {primary.name.charAt(0)}
+        </div>
         <p className="text-indigo-600 font-bold uppercase tracking-widest text-sm mb-2">
-          Perfil de aprendizaje de {childName}
+          Perfil de aprendizaje de {childName} · {ageRange} años
         </p>
         <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-3">
-          {primaryProfile.name}
+          {primary.name}
         </h1>
-        <p className="text-xl text-slate-600 italic">"{primaryProfile.tagline}"</p>
+        <p className="text-xl text-slate-600 italic">"{primary.tagline}"</p>
       </div>
 
       {/* Save status */}
@@ -324,7 +344,7 @@ function ResultsPhase({
       {emailStatus === 'sent' && (
         <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mb-6 text-emerald-700 font-medium">
           <CheckCircle size={20} />
-          📧 ¡Análisis enviado! Revisá tu correo.
+          ¡Análisis enviado! Revisá tu correo.
         </div>
       )}
       {emailStatus === 'error' && (
@@ -337,30 +357,35 @@ function ResultsPhase({
       {/* Primary profile card */}
       <div
         className="rounded-3xl p-8 mb-6 text-white shadow-2xl"
-        style={{ background: `linear-gradient(135deg, ${primaryProfile.color}ee, ${primaryProfile.color}99)` }}
+        style={{ background: `linear-gradient(135deg, ${primary.color}ee, ${primary.color}99)` }}
       >
         <p className="text-white/80 text-sm font-bold uppercase tracking-widest mb-2">Perfil principal</p>
-        <h2 className="text-3xl font-black mb-3">{primaryProfile.name}</h2>
-        <p className="text-white/90 leading-relaxed">{primaryProfile.description}</p>
+        <h2 className="text-3xl font-black mb-3">{primary.name}</h2>
+        <p className="text-white/90 leading-relaxed">{primary.description}</p>
         <div className="mt-4 inline-block bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full">
           Confianza: {confidenceLabel}
         </div>
       </div>
 
       {/* Secondary profile */}
-      {secondaryProfile && (
+      {secondary && (
         <div
           className="rounded-2xl p-6 mb-6 border-2"
-          style={{ borderColor: secondaryProfile.color + '44', backgroundColor: secondaryProfile.color + '0d' }}
+          style={{ borderColor: secondary.color + '44', backgroundColor: secondary.color + '0d' }}
         >
-          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: secondaryProfile.color }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: secondary.color }}>
             Perfil secundario
           </p>
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{secondaryProfile.icon}</span>
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white shrink-0"
+              style={{ backgroundColor: secondary.color }}
+            >
+              {secondary.name.charAt(0)}
+            </div>
             <div>
-              <h3 className="font-black text-lg text-slate-800">{secondaryProfile.name}</h3>
-              <p className="text-slate-600 text-sm italic">{secondaryProfile.tagline}</p>
+              <h3 className="font-black text-lg text-slate-800">{secondary.name}</h3>
+              <p className="text-slate-600 text-sm italic">{secondary.tagline}</p>
             </div>
           </div>
         </div>
@@ -388,7 +413,7 @@ function ResultsPhase({
             <span>💪</span> Fortalezas
           </h4>
           <ul className="space-y-2">
-            {primaryProfile.strengths.map((s, i) => (
+            {primary.strengths.map((s, i) => (
               <li key={i} className="text-sm text-emerald-700 flex items-start gap-2">
                 <span className="text-emerald-400 mt-0.5 shrink-0">✓</span> {s}
               </li>
@@ -401,7 +426,7 @@ function ResultsPhase({
             <span>🧩</span> Desafíos
           </h4>
           <ul className="space-y-2">
-            {primaryProfile.challenges.map((c, i) => (
+            {primary.challenges.map((c, i) => (
               <li key={i} className="text-sm text-amber-700 flex items-start gap-2">
                 <span className="text-amber-400 mt-0.5 shrink-0">•</span> {c}
               </li>
@@ -414,7 +439,7 @@ function ResultsPhase({
             <span>🚀</span> InfantIA lo adapta
           </h4>
           <ul className="space-y-2">
-            {primaryProfile.infantiaAdaptation.map((a, i) => (
+            {primary.infantiaAdaptation.map((a, i) => (
               <li key={i} className="text-sm text-indigo-700 flex items-start gap-2">
                 <span className="text-indigo-400 mt-0.5 shrink-0">→</span> {a}
               </li>
@@ -453,6 +478,7 @@ export function QuizPage() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [childName, setChildName] = useState('');
   const [childAge, setChildAge] = useState('');
+  const [ageRange, setAgeRange] = useState<AgeRange | null>(null);
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [result, setResult] = useState<ProfileResult | null>(null);
@@ -484,6 +510,11 @@ export function QuizPage() {
   }, []);
 
   const handleStart = () => {
+    const age = parseInt(childAge, 10);
+    const range = getAgeRange(age);
+    if (!range) return;
+
+    setAgeRange(range);
     setAnswers({});
     setCurrentIndex(0);
     setPhase('questions');
@@ -494,8 +525,10 @@ export function QuizPage() {
   };
 
   const handleFinish = async () => {
-    const scores = calculateScores(answers, QUESTIONS);
-    const profileResult = resolveProfiles(scores);
+    if (!ageRange) return;
+    const questions = QUESTIONS_BY_AGE_RANGE[ageRange];
+    const scores = calculateScores({ ageRange, answers, questions });
+    const profileResult = resolveProfiles(scores, ageRange);
     setResult(profileResult);
     setPhase('results');
     await saveAndEmail(profileResult, scores);
@@ -503,20 +536,18 @@ export function QuizPage() {
 
   const saveAndEmail = async (profileResult: ProfileResult, scores: DimensionScores) => {
     const user = auth.currentUser;
-
-    // ── Not logged in — show results only, don't save anything ──
-    if (!user) return;
+    if (!user || !ageRange) return;
 
     // ── 1. Firestore save ──
     setIsSaving(true);
     setSaveError(null);
     try {
-      // Create a child document for this quiz session
       const childRef = doc(collection(db, 'children'));
       await setDoc(childRef, {
         userId: user.uid,
         name: childName.trim(),
         age: parseInt(childAge, 10),
+        ageRange,
         createdAt: serverTimestamp(),
       });
 
@@ -524,13 +555,14 @@ export function QuizPage() {
       await setDoc(newDocRef, {
         userId: user.uid,
         childId: childRef.id,
+        ageRange,
         answers,
         scores,
-        primaryProfileId: profileResult.primaryProfile.id,
-        secondaryProfileId: profileResult.secondaryProfile?.id || null,
+        primaryProfileId: profileResult.primary.id,
+        secondaryProfileId: profileResult.secondary?.id || null,
         confidence: profileResult.confidence,
         createdAt: serverTimestamp(),
-        scoringVersion: '1.0',
+        scoringVersion: '2.0',
       });
     } catch (err) {
       console.warn('Firestore save failed:', err);
@@ -544,7 +576,7 @@ export function QuizPage() {
 
     setEmailStatus('sending');
     try {
-      const { primaryProfile, secondaryProfile, confidence } = profileResult;
+      const { primary, secondary, confidence } = profileResult;
       const resp = await fetch('/api/send-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -552,16 +584,15 @@ export function QuizPage() {
           email: user.email,
           childName: childName.trim(),
           childAge: parseInt(childAge, 10),
-          primaryProfileName: primaryProfile.name,
-          primaryProfileIcon: primaryProfile.icon,
-          primaryProfileTagline: primaryProfile.tagline,
-          primaryProfileDescription: primaryProfile.description,
-          primaryProfileColor: primaryProfile.color,
-          secondaryProfileName: secondaryProfile?.name || null,
-          secondaryProfileIcon: secondaryProfile?.icon || null,
-          strengths: primaryProfile.strengths,
-          challenges: primaryProfile.challenges,
-          adaptations: primaryProfile.infantiaAdaptation,
+          ageRange,
+          primaryProfileName: primary.name,
+          primaryProfileTagline: primary.tagline,
+          primaryProfileDescription: primary.description,
+          primaryProfileColor: primary.color,
+          secondaryProfileName: secondary?.name || null,
+          strengths: primary.strengths,
+          challenges: primary.challenges,
+          adaptations: primary.infantiaAdaptation,
           scores,
           confidence,
         }),
@@ -582,10 +613,13 @@ export function QuizPage() {
     setAnswers({});
     setCurrentIndex(0);
     setResult(null);
+    setAgeRange(null);
     setSaveError(null);
     setEmailStatus('idle');
     setPhase('intro');
   };
+
+  const currentQuestions = ageRange ? QUESTIONS_BY_AGE_RANGE[ageRange] : [];
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4">
@@ -607,6 +641,7 @@ export function QuizPage() {
           {phase === 'questions' && (
             <QuestionsPhase
               key="questions"
+              questions={currentQuestions}
               answers={answers}
               onAnswer={handleAnswer}
               currentIndex={currentIndex}

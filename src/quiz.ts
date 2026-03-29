@@ -1,448 +1,554 @@
 // ============================================================
-// INFANTIA — SISTEMA COMPLETO DE PERFIL DE APRENDIZAJE
+// INFANTIA — SISTEMA DE PERFIL DE APRENDIZAJE
+// Basado en infantia-core.ts v1.0
 // Client-safe version (no FirebaseFirestore server types)
 // ============================================================
 
-export type Dimension =
-  | "visual"
-  | "narrativo"
-  | "exploratorio"
-  | "guiado"
-  | "social"
-  | "ritmico"
+// ─── BASE TYPES ─────────────────────────────────────────────
 
+// Los 6 perfiles — nombres internos (nunca cambian)
 export type ProfileId =
-  | "explorador_visual"
-  | "narrador_curioso"
+  | "explorador_creativo"
   | "pensador_logico"
-  | "aprendiz_guiado"
-  | "conector_social"
-  | "maestro_del_ritmo"
+  | "comunicador_social"
+  | "observador_analitico"
+  | "constructor_practico"
+  | "aprendiz_visual"
+
+// Las 6 dimensiones de scoring (mapean 1:1 con perfiles)
+export type Dimension =
+  | "creatividad"    // → Explorador Creativo
+  | "logica"         // → Pensador Lógico
+  | "social"         // → Comunicador Social
+  | "analitico"      // → Observador Analítico
+  | "practico"       // → Constructor Práctico
+  | "visual"         // → Aprendiz Visual
+
+// Los 4 rangos etarios
+export type AgeRange = "3-4" | "5-6" | "7-8" | "9-10"
+
+// Valor de respuesta en escala 1-4
+export type AnswerValue = 1 | 2 | 3 | 4
+
+// ─── QUESTION STRUCTURE ─────────────────────────────────────
+
+export interface DimensionWeight {
+  dimension: Dimension
+  multiplier: number  // 0.5 | 1.0 | 1.5 | 2.0
+}
+
+export type QuestionType =
+  | "scale"    // Escala 1-4 (texto)
+  | "visual_2" // El niño elige entre 2 imágenes SVG
+  | "visual_4" // El niño elige entre 4 imágenes SVG
+
+export type Respondent = "parent" | "child" | "both"
+
+export type BlockId =
+  | "como_juega"
+  | "como_explora"
+  | "como_se_relaciona"
+  | "como_reacciona"
+  | "como_piensa"
+  | "como_aprende"
+  | "que_le_gusta"
+  | "como_resuelve"
+
+export interface QuestionBlock {
+  id: BlockId
+  label: string
+  ageRange: AgeRange
+}
+
+export interface VisualOption {
+  value: AnswerValue
+  svgKey: string
+  label: string
+  dimensionHint: Dimension
+}
+
+export interface Question {
+  id: string
+  ageRange: AgeRange
+  blockId: BlockId
+  type: QuestionType
+  respondent: Respondent
+  text: string
+  subtext?: string
+  weights: DimensionWeight[]
+  visualOptions?: VisualOption[]
+  scaleLabels?: [string, string, string, string]
+}
+
+// ─── LEARNING PROFILES ──────────────────────────────────────
 
 export interface LearningProfile {
   id: ProfileId
   name: string
   tagline: string
   description: string
-  dominantDimensions: Dimension[]
+  dimension: Dimension
   strengths: string[]
   challenges: string[]
   idealContent: string[]
   infantiaAdaptation: string[]
   color: string
-  icon: string
+  colorLight: string
+  colorDark: string
 }
 
 export const PROFILES: Record<ProfileId, LearningProfile> = {
-  explorador_visual: {
-    id: "explorador_visual",
-    name: "Explorador Visual",
-    tagline: "Aprende descubriendo con los ojos",
+
+  explorador_creativo: {
+    id: "explorador_creativo",
+    name: "Explorador Creativo",
+    tagline: "Aprende experimentando, creando y probando",
     description:
-      "Tu hijo construye su comprensión del mundo a través de lo que ve. " +
-      "Las imágenes, los colores, los espacios y los detalles visuales son " +
-      "su lenguaje natural. Aprende mejor cuando puede 'ver para entender'.",
-    dominantDimensions: ["visual", "exploratorio"],
+      "Niño con alta curiosidad e imaginación que busca descubrir el mundo a su manera. " +
+      "Se aburre con lo repetitivo y florece cuando tiene libertad para explorar.",
+    dimension: "creatividad",
     strengths: [
-      "Retiene información visual con facilidad",
-      "Detecta detalles que otros pasan por alto",
-      "Conecta conceptos abstractos con representaciones visuales",
-      "Alta curiosidad ante lo nuevo y lo diferente",
+      "Imaginación y creatividad muy desarrolladas",
+      "Alta curiosidad ante lo desconocido",
+      "Capacidad de generar ideas originales",
+      "Disfruta los desafíos abiertos sin respuesta única",
     ],
     challenges: [
-      "Puede perder atención en actividades sin estímulo visual",
-      "Instrucciones puramente verbales pueden resultarle difíciles",
-      "Tendencia a dispersarse si hay demasiados estímulos a la vez",
+      "Puede aburrirse con actividades muy estructuradas o repetitivas",
+      "Le cuesta seguir instrucciones paso a paso sin explorar",
+      "Puede dispersarse si hay demasiadas opciones a la vez",
     ],
     idealContent: [
-      "Actividades con ilustraciones ricas y detalladas",
-      "Videos cortos y animaciones expresivas",
-      "Mapas, esquemas y representaciones visuales de conceptos",
-      "Exploración libre con posibilidad de descubrir a su ritmo",
+      "Desafíos abiertos con múltiples soluciones posibles",
+      "Actividades de creación libre (dibujo, construcción, invención)",
+      "Proyectos donde pueda tomar sus propias decisiones",
+      "Exploración sin límites de tiempo estrictos",
     ],
     infantiaAdaptation: [
-      "Caminos de aprendizaje con alta carga visual",
-      "Recompensas visuales inmediatas (animaciones, destellos, logros)",
-      "Minijuegos de observación y memoria visual",
-      "Presentación de conceptos mediante metáforas gráficas",
+      "Modo sandbox con actividades de creación libre",
+      "Desafíos sin respuesta única correcta",
+      "Proyectos creativos que se construyen a lo largo del tiempo",
+      "Recompensas por originalidad, no solo por precisión",
     ],
     color: "#FF6B35",
-    icon: "👁️",
-  },
-
-  narrador_curioso: {
-    id: "narrador_curioso",
-    name: "Narrador Curioso",
-    tagline: "Aprende cuando hay una historia que seguir",
-    description:
-      "Tu hijo necesita contexto para aprender. Los personajes, las tramas " +
-      "y las situaciones le dan sentido a lo que estudia. Un concepto nuevo " +
-      "le entra mucho mejor si viene envuelto en un relato.",
-    dominantDimensions: ["narrativo", "social"],
-    strengths: [
-      "Memoria narrativa muy desarrollada",
-      "Empatía alta, aprende bien por identificación con personajes",
-      "Vocabulario rico y facilidad para expresarse",
-      "Capacidad de imaginar y crear secuencias lógicas",
-    ],
-    challenges: [
-      "Puede aburrirse con ejercicios sin contexto o significado",
-      "Necesita entender el 'para qué' antes de hacer",
-      "Puede desconcentrarse si la historia no le engancha",
-    ],
-    idealContent: [
-      "Cuentos interactivos donde las decisiones importan",
-      "Personajes que evolucionan con el progreso del niño",
-      "Contexto narrativo para cada habilidad o concepto nuevo",
-      "Actividades que simulan situaciones cotidianas",
-    ],
-    infantiaAdaptation: [
-      "Universo narrativo propio de InfantIA con personajes recurrentes",
-      "Cada módulo presentado como un capítulo de una historia",
-      "Progreso del niño reflejado en la evolución del mundo del juego",
-      "Actividades de escritura y narración creativa",
-    ],
-    color: "#7C3AED",
-    icon: "📖",
+    colorLight: "#FFF0EB",
+    colorDark: "#92320E",
   },
 
   pensador_logico: {
     id: "pensador_logico",
     name: "Pensador Lógico",
-    tagline: "Aprende cuando puede resolver y entender el porqué",
+    tagline: "Aprende mediante lógica, patrones y orden",
     description:
-      "Tu hijo disfruta los desafíos que tienen solución. Necesita entender " +
-      "las reglas antes de jugar. La consistencia, la lógica y los patrones " +
-      "son su terreno natural.",
-    dominantDimensions: ["exploratorio", "ritmico"],
+      "Niño que busca entender cómo funcionan las cosas de forma estructurada. " +
+      "Le gustan los problemas con solución clara y los entornos organizados.",
+    dimension: "logica",
     strengths: [
-      "Alta tolerancia a la frustración si percibe avance",
       "Pensamiento secuencial y ordenado",
-      "Disfruta los puzzles, los rompecabezas y los problemas con solución",
+      "Alta tolerancia a la frustración cuando percibe progreso",
+      "Disfruta puzzles, rompecabezas y problemas con solución",
       "Aprende mejor cuando comprende la estructura de lo que hace",
     ],
     challenges: [
-      "Puede bloquearse si las reglas no son claras",
+      "Se bloquea si las reglas no son claras desde el inicio",
       "Poco interés por actividades abiertas sin objetivo definido",
-      "Puede impacientarse con actividades muy narrativas o lentas",
+      "Puede impacientarse con ritmos muy lentos o sin desafío",
     ],
     idealContent: [
       "Puzzles con niveles progresivos de dificultad",
       "Actividades de clasificación, ordenamiento y patrones",
-      "Desafíos con retroalimentación inmediata y precisa",
-      "Mini-proyectos donde construye algo con lógica",
+      "Juegos de lógica con retroalimentación inmediata y precisa",
+      "Mini-proyectos donde construye algo con una lógica clara",
     ],
     infantiaAdaptation: [
       "Modo desafío con niveles claramente definidos",
-      "Retroalimentación precisa, no solo 'bien/mal'",
-      "Actividades de programación visual básica, lógica y matemática",
+      "Retroalimentación precisa, no solo bien/mal",
+      "Actividades de lógica, matemática y programación visual básica",
       "Sistema de logros basado en precisión y consistencia",
     ],
     color: "#0EA5E9",
-    icon: "🧩",
+    colorLight: "#F0F9FF",
+    colorDark: "#0C527A",
   },
 
-  aprendiz_guiado: {
-    id: "aprendiz_guiado",
-    name: "Aprendiz Guiado",
-    tagline: "Aprende mejor con apoyo y estructura clara",
+  comunicador_social: {
+    id: "comunicador_social",
+    name: "Comunicador Social",
+    tagline: "Aprende hablando, compartiendo y participando",
     description:
-      "Tu hijo florece cuando tiene un adulto o un guía que lo acompaña. " +
-      "La estructura, las instrucciones claras y el reconocimiento de su " +
-      "esfuerzo son lo que más lo impulsa a aprender.",
-    dominantDimensions: ["guiado", "social"],
-    strengths: [
-      "Muy receptivo a instrucciones claras",
-      "Alta motivación cuando recibe reconocimiento",
-      "Aprende bien por imitación y modelado",
-      "Constante y dedicado cuando siente que lo acompañan",
-    ],
-    challenges: [
-      "Puede insegurrizarse ante actividades completamente abiertas",
-      "Necesita más tiempo de arranque si no tiene guía inicial",
-      "La frustración puede aparecer rápido si se siente solo en la tarea",
-    ],
-    idealContent: [
-      "Tutoriales paso a paso con voz o avatar guía",
-      "Actividades con instrucciones visuales claras antes de empezar",
-      "Feedback frecuente y positivo durante el proceso",
-      "Progreso incremental con celebraciones en cada avance",
-    ],
-    infantiaAdaptation: [
-      "Personaje guía presente en cada nueva actividad",
-      "Modo 'acompañado' con ayudas disponibles siempre",
-      "Sistema de micro-recompensas por cada pequeño logro",
-      "Notificaciones para padres con avances detallados",
-    ],
-    color: "#10B981",
-    icon: "🌱",
-  },
-
-  conector_social: {
-    id: "conector_social",
-    name: "Conector Social",
-    tagline: "Aprende cuando puede compartir y jugar con otros",
-    description:
-      "Tu hijo aprende más y mejor cuando hay interacción humana. El " +
-      "juego compartido, la conversación y el sentido de comunidad son " +
-      "los motores de su aprendizaje.",
-    dominantDimensions: ["social", "narrativo"],
+      "Niño expresivo y sociable que aprende principalmente a través de la interacción " +
+      "con otras personas. Aprende explicando o escuchando.",
+    dimension: "social",
     strengths: [
       "Inteligencia emocional y social muy desarrollada",
-      "Aprende bien por comparación y discusión con pares",
-      "Alta motivación cuando siente que pertenece a un grupo",
       "Comunicación fluida y habilidades interpersonales tempranas",
+      "Alta motivación cuando siente que pertenece a un grupo",
+      "Aprende bien por comparación y conversación con pares",
     ],
     challenges: [
-      "Actividades solitarias pueden resultarle poco motivadoras",
-      "Puede distraerse buscando interacción donde no la hay",
+      "Actividades solitarias le resultan poco motivadoras",
       "Necesita sentir que su participación es vista y valorada",
+      "Puede distraerse buscando interacción donde no la hay",
     ],
     idealContent: [
       "Actividades colaborativas y juegos en grupo",
       "Contenido que invite a compartir con un familiar",
-      "Retos que puedan hacerse con un hermano o un adulto",
-      "Espacios para mostrar sus creaciones",
+      "Espacios para mostrar y explicar sus creaciones",
+      "Retos que puedan hacerse con un hermano o adulto",
     ],
     infantiaAdaptation: [
       "Modo familiar: actividades padre-hijo integradas",
-      "Tablero de logros visible para la familia",
+      "Tablero de logros visible para toda la familia",
       "Actividades de creación compartible (dibujos, historias)",
       "Comunidad de familias con logros y retos compartidos",
     ],
     color: "#F59E0B",
-    icon: "🤝",
+    colorLight: "#FFFBEB",
+    colorDark: "#92400E",
   },
 
-  maestro_del_ritmo: {
-    id: "maestro_del_ritmo",
-    name: "Maestro del Ritmo",
-    tagline: "Aprende a través de la repetición, el movimiento y los patrones",
+  observador_analitico: {
+    id: "observador_analitico",
+    name: "Observador Analítico",
+    tagline: "Aprende observando, analizando y comprendiendo",
     description:
-      "Tu hijo tiene una relación especial con el ritmo: la repetición no " +
-      "lo aburre, le da seguridad. El movimiento, la música y los patrones " +
-      "regulares son su forma preferida de fijar lo que aprende.",
-    dominantDimensions: ["ritmico", "visual"],
+      "Niño tranquilo y detallista que procesa la información de forma reflexiva antes " +
+      "de actuar. Piensa antes de responder y necesita tiempo para procesar.",
+    dimension: "analitico",
     strengths: [
-      "Aprende con rapidez cuando hay repetición estructurada",
-      "Muy buena memoria procedimental (hacer cosas paso a paso)",
-      "Disfruta y aprende con música, rimas y juegos de movimiento",
-      "Alta concentración en actividades rítmicas y predecibles",
+      "Capacidad de observación y atención al detalle muy alta",
+      "Pensamiento reflexivo y profundo",
+      "Muy buena retención cuando comprende antes de memorizar",
+      "Constancia y calidad en lo que produce",
     ],
     challenges: [
-      "Puede resistir los cambios abruptos de actividad",
-      "Las transiciones sin aviso previo pueden generarle ansiedad",
-      "Menos flexible ante actividades muy abiertas o impredecibles",
+      "Puede necesitar más tiempo que sus pares para arrancar",
+      "Ambientes ruidosos o caóticos le dificultan el aprendizaje",
+      "Puede bloquearse ante presión de tiempo o ritmo acelerado",
     ],
     idealContent: [
-      "Canciones, rimas y actividades con música",
-      "Rutinas de aprendizaje con estructura predecible",
-      "Patrones visuales, series matemáticas y secuencias",
-      "Actividades cortas y repetibles con variaciones graduales",
+      "Actividades con tiempo suficiente para pensar antes de responder",
+      "Explicaciones claras y completas antes de comenzar",
+      "Entornos tranquilos con pocos estímulos simultáneos",
+      "Contenido que permita revisar y corregir sin penalización",
     ],
     infantiaAdaptation: [
-      "Rutina diaria de aprendizaje con estructura consistente",
-      "Canciones educativas integradas a los módulos",
-      "Sistema de hábitos con recordatorios y celebraciones de racha",
-      "Actividades de ritmo, música y movimiento como herramienta pedagógica",
+      "Sin límites de tiempo estrictos en actividades de comprensión",
+      "Modo de revisión: posibilidad de volver y corregir",
+      "Explicaciones detalladas antes de cada nueva actividad",
+      "Progreso medido por profundidad, no solo por velocidad",
+    ],
+    color: "#7C3AED",
+    colorLight: "#EDE9FF",
+    colorDark: "#3B1A8C",
+  },
+
+  constructor_practico: {
+    id: "constructor_practico",
+    name: "Constructor Práctico",
+    tagline: "Aprende haciendo, tocando y moviéndose",
+    description:
+      "Niño que aprende mejor a través de la acción y la experiencia física. " +
+      "Le gusta construir, necesita moverse y aprende con el cuerpo.",
+    dimension: "practico",
+    strengths: [
+      "Coordinación y habilidades motrices bien desarrolladas",
+      "Aprende haciendo — la práctica supera a la teoría",
+      "Alta motivación en actividades con resultado tangible",
+      "Energía y persistencia cuando la actividad es física o manual",
+    ],
+    challenges: [
+      "Puede impacientarse con actividades muy teóricas o abstractas",
+      "Necesita moverse — le cuesta permanecer quieto mucho tiempo",
+      "Las instrucciones largas sin acción le generan desconexión",
+    ],
+    idealContent: [
+      "Actividades prácticas con resultado visible",
+      "Juegos manuales y de construcción",
+      "Desafíos físicos y cinéticos",
+      "Experimentos donde puede tocar y manipular",
+    ],
+    infantiaAdaptation: [
+      "Actividades con interacción táctil y movimiento en pantalla",
+      "Proyectos de construcción digital paso a paso",
+      "Desafíos con resultado visual e inmediato",
+      "Mini-laboratorios y experimentos guiados",
+    ],
+    color: "#10B981",
+    colorLight: "#ECFDF5",
+    colorDark: "#065F46",
+  },
+
+  aprendiz_visual: {
+    id: "aprendiz_visual",
+    name: "Aprendiz Visual",
+    tagline: "Aprende a través de imágenes, colores y representaciones visuales",
+    description:
+      "Niño que entiende mejor la información cuando la ve representada. " +
+      "Recuerda mejor lo que ve, se enfoca en imágenes y le atraen colores, formas y gráficos.",
+    dimension: "visual",
+    strengths: [
+      "Retiene información visual con mucha facilidad",
+      "Detecta detalles, diferencias y patrones visuales",
+      "Conecta conceptos abstractos con representaciones gráficas",
+      "Alta atención ante estímulos visuales ricos",
+    ],
+    challenges: [
+      "Puede perder atención en actividades sin estímulo visual",
+      "Instrucciones puramente verbales le resultan difíciles de seguir",
+      "Tendencia a dispersarse si hay demasiados elementos a la vez",
+    ],
+    idealContent: [
+      "Contenido con ilustraciones ricas y detalladas",
+      "Videos cortos y animaciones expresivas",
+      "Mapas, esquemas y representaciones gráficas de conceptos",
+      "Actividades de observación y memoria visual",
+    ],
+    infantiaAdaptation: [
+      "Caminos de aprendizaje con alta carga visual",
+      "Recompensas visuales inmediatas: animaciones, efectos, logros",
+      "Minijuegos de observación y memoria visual",
+      "Presentación de todos los conceptos mediante metáforas gráficas",
     ],
     color: "#EC4899",
-    icon: "🎵",
+    colorLight: "#FDF2F8",
+    colorDark: "#831843",
   },
 }
 
-// ─── SCORING ─────────────────────────────────────────────────
+// ─── AGE WEIGHT MATRIX ──────────────────────────────────────
 
-export interface DimensionScores {
-  visual: number
-  narrativo: number
-  exploratorio: number
-  guiado: number
-  social: number
-  ritmico: number
+export type DimensionScores = Record<Dimension, number>  // 0–100
+
+export type AgeWeightMatrix = Record<AgeRange, Record<Dimension, number>>
+
+export const AGE_WEIGHT_MATRIX: AgeWeightMatrix = {
+  "3-4": {
+    creatividad: 1.5,
+    logica:      0.5,
+    social:      1.5,
+    analitico:   0.5,
+    practico:    1.5,
+    visual:      1.0,
+  },
+  "5-6": {
+    creatividad: 1.5,
+    logica:      1.0,
+    social:      1.5,
+    analitico:   1.0,
+    practico:    1.5,
+    visual:      1.0,
+  },
+  "7-8": {
+    creatividad: 1.0,
+    logica:      1.5,
+    social:      1.0,
+    analitico:   1.5,
+    practico:    1.0,
+    visual:      1.0,
+  },
+  "9-10": {
+    creatividad: 1.0,
+    logica:      1.5,
+    social:      1.0,
+    analitico:   1.5,
+    practico:    1.0,
+    visual:      1.0,
+  },
 }
 
-export type AnswerValue = 1 | 2 | 3 | 4
+// ─── SCORING ENGINE ─────────────────────────────────────────
 
-export interface QuestionWeight {
-  dimension: Dimension
-  multiplier: number
-}
-
-export interface Question {
-  id: string
-  text: string
-  subtext?: string
-  weights: QuestionWeight[]
-  answerLabels: [string, string, string, string]
-}
-
-export function calculateScores(
-  answers: Record<string, AnswerValue>,
+export interface ScoringInput {
+  ageRange: AgeRange
+  answers: Record<string, AnswerValue>
   questions: Question[]
-): DimensionScores {
-  const raw: DimensionScores = { visual: 0, narrativo: 0, exploratorio: 0, guiado: 0, social: 0, ritmico: 0 }
-  const maxRaw: DimensionScores = { visual: 0, narrativo: 0, exploratorio: 0, guiado: 0, social: 0, ritmico: 0 }
+}
+
+export interface ProfileResult {
+  primary: LearningProfile
+  secondary: LearningProfile | null
+  scores: DimensionScores
+  confidence: "alta" | "media" | "baja"
+  ageRange: AgeRange
+}
+
+export function calculateScores(input: ScoringInput): DimensionScores {
+  const { ageRange, answers, questions } = input
+  const ageWeights = AGE_WEIGHT_MATRIX[ageRange]
+
+  const raw: DimensionScores = {
+    creatividad: 0, logica: 0, social: 0,
+    analitico: 0, practico: 0, visual: 0,
+  }
+  const maxRaw: DimensionScores = {
+    creatividad: 0, logica: 0, social: 0,
+    analitico: 0, practico: 0, visual: 0,
+  }
 
   for (const question of questions) {
     const answer = answers[question.id]
     if (answer === undefined) continue
-    for (const w of question.weights) {
-      raw[w.dimension] += answer * w.multiplier
-      maxRaw[w.dimension] += 4 * w.multiplier
+
+    for (const weight of question.weights) {
+      const { dimension, multiplier } = weight
+      const ageMultiplier = ageWeights[dimension]
+      const finalMultiplier = multiplier * ageMultiplier
+
+      const maxValue = question.type === "visual_2" ? 2 : 4
+
+      raw[dimension]    += answer * finalMultiplier
+      maxRaw[dimension] += maxValue * finalMultiplier
     }
   }
 
   const normalized = {} as DimensionScores
-  for (const dim of Object.keys(raw) as Dimension[]) {
-    normalized[dim] = maxRaw[dim] > 0 ? Math.round((raw[dim] / maxRaw[dim]) * 100) : 0
+  const dims: Dimension[] = ["creatividad", "logica", "social", "analitico", "practico", "visual"]
+  for (const dim of dims) {
+    normalized[dim] = maxRaw[dim] > 0
+      ? Math.round((raw[dim] / maxRaw[dim]) * 100)
+      : 0
   }
+
   return normalized
 }
 
-function dimensionToProfileId(dim: Dimension): ProfileId {
-  const map: Record<Dimension, ProfileId> = {
-    visual: "explorador_visual",
-    narrativo: "narrador_curioso",
-    exploratorio: "pensador_logico",
-    guiado: "aprendiz_guiado",
-    social: "conector_social",
-    ritmico: "maestro_del_ritmo",
-  }
-  return map[dim]
+const DIMENSION_TO_PROFILE: Record<Dimension, ProfileId> = {
+  creatividad: "explorador_creativo",
+  logica:      "pensador_logico",
+  social:      "comunicador_social",
+  analitico:   "observador_analitico",
+  practico:    "constructor_practico",
+  visual:      "aprendiz_visual",
 }
 
-export interface ProfileResult {
-  primaryProfile: LearningProfile
-  secondaryProfile: LearningProfile | null
-  scores: DimensionScores
-  confidence: "alta" | "media" | "baja"
-}
+const SECONDARY_THRESHOLD = 40
 
-export function resolveProfiles(scores: DimensionScores): ProfileResult {
-  const sorted = (Object.entries(scores) as [Dimension, number][]).sort(([, a], [, b]) => b - a)
-  const [topDim, topScore] = sorted[0]
+export function resolveProfiles(
+  scores: DimensionScores,
+  ageRange: AgeRange
+): ProfileResult {
+  const sorted = (Object.entries(scores) as [Dimension, number][])
+    .sort(([, a], [, b]) => b - a)
+
+  const [topDim,    topScore]  = sorted[0]
   const [secondDim, secondScore] = sorted[1]
-  const hasSecondary = secondScore >= 40
+
   const gap = topScore - secondScore
-  const confidence: ProfileResult["confidence"] = gap >= 25 ? "alta" : gap >= 12 ? "media" : "baja"
+  const confidence: ProfileResult["confidence"] =
+    gap >= 25 ? "alta" :
+    gap >= 12 ? "media" :
+    "baja"
+
+  const hasSecondary = secondScore >= SECONDARY_THRESHOLD
 
   return {
-    primaryProfile: PROFILES[dimensionToProfileId(topDim)],
-    secondaryProfile: hasSecondary ? PROFILES[dimensionToProfileId(secondDim)] : null,
+    primary:    PROFILES[DIMENSION_TO_PROFILE[topDim]],
+    secondary:  hasSecondary ? PROFILES[DIMENSION_TO_PROFILE[secondDim]] : null,
     scores,
     confidence,
+    ageRange,
   }
 }
 
-// ─── QUESTIONS ───────────────────────────────────────────────
+export function runScoringEngine(input: ScoringInput): ProfileResult {
+  const scores = calculateScores(input)
+  return resolveProfiles(scores, input.ageRange)
+}
 
-export const QUESTIONS: Question[] = [
-  {
-    id: "q01",
-    text: "Cuando le explico algo nuevo, ¿busca verlo dibujado, señalado o en imágenes antes de entenderlo?",
-    weights: [{ dimension: "visual", multiplier: 1.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q02",
-    text: "¿Le gustan los cuentos, historias o personajes, y recuerda bien lo que pasa en ellos?",
-    weights: [{ dimension: "narrativo", multiplier: 1.5 }, { dimension: "social", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q03",
-    text: "¿Tiende a explorar los juguetes o actividades por su cuenta, sin esperar que le expliquen cómo usarlos?",
-    weights: [{ dimension: "exploratorio", multiplier: 1.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q04",
-    text: "Cuando empieza una actividad nueva, ¿busca que un adulto esté cerca o lo ayude a arrancar?",
-    weights: [{ dimension: "guiado", multiplier: 1.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q05",
-    text: "¿Disfruta jugar con otros niños o con adultos más que solo?",
-    weights: [{ dimension: "social", multiplier: 1.5 }, { dimension: "narrativo", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q06",
-    text: "¿Le atraen las canciones, rimas o cualquier actividad con ritmo o música?",
-    weights: [{ dimension: "ritmico", multiplier: 1.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q07",
-    text: "¿Nota y menciona detalles visuales (colores, formas, diferencias en dibujos) que otros pasan por alto?",
-    weights: [{ dimension: "visual", multiplier: 1.0 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q08",
-    text: "Cuando le pedís que haga algo, ¿necesita entender el 'para qué' o el contexto antes de empezar?",
-    subtext: "Por ejemplo: pregunta por qué hacemos esto, o quiere saber qué pasa después.",
-    weights: [{ dimension: "narrativo", multiplier: 1.0 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q09",
-    text: "¿Persiste en resolver un problema o puzzle aunque le cueste, sin querer que le den la respuesta?",
-    weights: [{ dimension: "exploratorio", multiplier: 1.0 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q10",
-    text: "¿Responde mejor a una tarea cuando le mostrás primero cómo se hace?",
-    weights: [{ dimension: "guiado", multiplier: 1.0 }, { dimension: "visual", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q11",
-    text: "¿Le gusta mostrarle a otros lo que hizo o aprendió?",
-    weights: [{ dimension: "social", multiplier: 1.0 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q12",
-    text: "¿Aprende mejor cuando las actividades tienen una estructura fija, una rutina o se repiten de forma similar?",
-    weights: [{ dimension: "ritmico", multiplier: 1.0 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q13",
-    text: "¿Se distrae o frustra cuando hay muchos cambios de actividad sin aviso previo?",
-    weights: [{ dimension: "ritmico", multiplier: 0.5 }, { dimension: "guiado", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q14",
-    text: "Cuando juega, ¿prefiere inventar situaciones y personajes propios (juego simbólico, dramatizaciones)?",
-    weights: [{ dimension: "narrativo", multiplier: 1.0 }, { dimension: "exploratorio", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-  {
-    id: "q15",
-    text: "¿Reacciona bien ante los elogios y el reconocimiento durante una tarea, motivándose para seguir?",
-    weights: [{ dimension: "guiado", multiplier: 1.0 }, { dimension: "social", multiplier: 0.5 }],
-    answerLabels: ["Casi nunca", "A veces", "Seguido", "Casi siempre"],
-  },
-]
+// ─── HELPERS ────────────────────────────────────────────────
 
-// ─── FIRESTORE SHAPES (client-safe) ──────────────────────────
+export function getAgeRange(age: number): AgeRange | null {
+  if (age >= 3 && age <= 4)  return "3-4"
+  if (age >= 5 && age <= 6)  return "5-6"
+  if (age >= 7 && age <= 8)  return "7-8"
+  if (age >= 9 && age <= 10) return "9-10"
+  return null
+}
+
+// ─── PLACEHOLDER QUESTIONS ──────────────────────────────────
+// Las preguntas reales se definen por rango etario.
+// Cada rango tiene sus propias preguntas adaptadas a la edad.
+// Por ahora se usan placeholders — reemplazar con contenido real.
+
+const DEFAULT_SCALE_LABELS: [string, string, string, string] =
+  ["Casi nunca", "A veces", "Seguido", "Casi siempre"]
+
+function makePlaceholderQuestions(ageRange: AgeRange): Question[] {
+  // 8 bloques × 2 preguntas c/u = 16 preguntas por rango
+  const blocks: { id: BlockId; label: string; dims: [Dimension, Dimension] }[] = [
+    { id: "como_juega",         label: "Cómo juega",         dims: ["creatividad", "practico"] },
+    { id: "como_explora",       label: "Cómo explora",       dims: ["creatividad", "visual"] },
+    { id: "como_se_relaciona",  label: "Cómo se relaciona",  dims: ["social", "comunicador_social" as unknown as Dimension] },
+    { id: "como_reacciona",     label: "Cómo reacciona",     dims: ["analitico", "practico"] },
+    { id: "como_piensa",        label: "Cómo piensa",        dims: ["logica", "analitico"] },
+    { id: "como_aprende",       label: "Cómo aprende",       dims: ["visual", "logica"] },
+    { id: "que_le_gusta",       label: "Qué le gusta",       dims: ["creatividad", "social"] },
+    { id: "como_resuelve",      label: "Cómo resuelve",      dims: ["logica", "practico"] },
+  ]
+
+  // Fix the social duplicate above
+  blocks[2].dims = ["social", "creatividad"]
+
+  const prefix = ageRange === "3-4" ? "a" : ageRange === "5-6" ? "b" : ageRange === "7-8" ? "c" : "d"
+  const questions: Question[] = []
+  let idx = 1
+
+  for (const block of blocks) {
+    // Question 1: primary dimension for this block
+    questions.push({
+      id: `${prefix}_${String(idx).padStart(2, "0")}`,
+      ageRange,
+      blockId: block.id,
+      type: "scale",
+      respondent: "parent",
+      text: `[PLACEHOLDER — ${block.label}, pregunta 1 para rango ${ageRange}]`,
+      weights: [{ dimension: block.dims[0], multiplier: 1.5 }],
+      scaleLabels: DEFAULT_SCALE_LABELS,
+    })
+    idx++
+
+    // Question 2: secondary dimension for this block
+    questions.push({
+      id: `${prefix}_${String(idx).padStart(2, "0")}`,
+      ageRange,
+      blockId: block.id,
+      type: "scale",
+      respondent: "parent",
+      text: `[PLACEHOLDER — ${block.label}, pregunta 2 para rango ${ageRange}]`,
+      weights: [{ dimension: block.dims[1], multiplier: 1.0 }],
+      scaleLabels: DEFAULT_SCALE_LABELS,
+    })
+    idx++
+  }
+
+  return questions
+}
+
+// Questions indexed by age range
+export const QUESTIONS_BY_AGE_RANGE: Record<AgeRange, Question[]> = {
+  "3-4":  makePlaceholderQuestions("3-4"),
+  "5-6":  makePlaceholderQuestions("5-6"),
+  "7-8":  makePlaceholderQuestions("7-8"),
+  "9-10": makePlaceholderQuestions("9-10"),
+}
+
+// ─── FIRESTORE SHAPES (client-safe) ────────────────────────
+
+export type PlanId = "free" | "standard" | "premium" | "family"
 
 export interface FirestoreChild {
   userId: string
   name: string
   age: number
+  ageRange: AgeRange
   createdAt: unknown  // serverTimestamp() at write time
 }
 
 export interface FirestoreProfile {
   userId: string
   childId: string
+  ageRange: AgeRange
   answers: Record<string, AnswerValue>
   scores: DimensionScores
   primaryProfileId: ProfileId

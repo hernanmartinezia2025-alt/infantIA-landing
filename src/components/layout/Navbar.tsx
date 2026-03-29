@@ -92,8 +92,10 @@ export function Navbar({ onRegisterClick }: { onRegisterClick: () => void }) {
         <div className="flex items-center gap-3 ml-auto lg:ml-4 shrink-0">
           {user && (
             <div className="flex items-center gap-3">
-              <img src={user.photoURL || ''} alt={user.displayName || 'User'} className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-indigo-200" referrerPolicy="no-referrer" />
-              <button 
+              <Link to="/perfil" className="hover:opacity-80 transition-opacity">
+                <img src={user.photoURL || ''} alt={user.displayName || 'User'} className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-indigo-200 hover:border-indigo-400 transition-colors" referrerPolicy="no-referrer" />
+              </Link>
+              <button
                 onClick={handleLogout}
                 className="hidden lg:block text-slate-500 hover:text-slate-800 transition-colors"
                 title="Cerrar sesión"
