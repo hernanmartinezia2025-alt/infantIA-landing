@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { RotateCcw, LogIn, Clock, ArrowLeft } from 'lucide-react';
+import { RotateCcw, LogIn, Clock, ArrowLeft, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import {
@@ -120,9 +120,11 @@ interface AnalysisDisplayProps {
   childName: string;
   childAge: number;
   completedAt: Date | null;
+  emailStatus: 'idle' | 'sending' | 'sent' | 'error';
+  onSendEmail: () => void;
 }
 
-function AnalysisDisplay({ result, childName, childAge, completedAt }: AnalysisDisplayProps) {
+function AnalysisDisplay({ result, childName, childAge, completedAt, emailStatus, onSendEmail }: AnalysisDisplayProps) {
   const { primary, secondary, scores, confidence, ageRange } = result;
 
   const confidenceLabel = {
@@ -276,6 +278,36 @@ function AnalysisDisplay({ result, childName, childAge, completedAt }: AnalysisD
         <p className="text-white/80 text-sm">Tu perfil ya está reservado.</p>
       </div>
 
+      {/* Debug: Send email */}
+      <div className="mb-6">
+        {emailStatus === 'idle' && (
+          <button
+            onClick={onSendEmail}
+            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all"
+          >
+            <Mail size={18} /> Enviar análisis a mi correo
+          </button>
+        )}
+        {emailStatus === 'sending' && (
+          <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-2xl px-5 py-4 text-sky-700 font-medium">
+            <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+            Enviando el análisis a tu correo...
+          </div>
+        )}
+        {emailStatus === 'sent' && (
+          <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 text-emerald-700 font-medium">
+            <CheckCircle size={20} />
+            ¡Análisis enviado! Revisá tu correo.
+          </div>
+        )}
+        {emailStatus === 'error' && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-amber-700 font-medium">
+            <AlertCircle size={20} />
+            No se pudo enviar el email.
+          </div>
+        )}
+      </div>
+
       {/* Redo quiz */}
       <div className="text-center mb-10">
         <Link
@@ -308,6 +340,46 @@ export function AnalysisDetailPage({ onLoginClick }: { onLoginClick: () => void 
   const { profileId } = useParams<{ profileId: string }>();
   const [pageState, setPageState] = useState<PageState>('loading');
   const [analysis, setAnalysis] = useState<StoredAnalysis | null>(null);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const handleSendEmail = async () => {
+    const user = auth.currentUser;
+    if (!user?.email || !analysis) return;
+
+    setEmailStatus('sending');
+    try {
+      const { primary, secondary, scores, confidence, ageRange } = analysis.result;
+      const resp = await fetch('/api/send-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          childName: analysis.childName,
+          childAge: analysis.childAge,
+          ageRange,
+          primaryProfileName: primary.name,
+          primaryProfileTagline: primary.tagline,
+          primaryProfileDescription: primary.description,
+          primaryProfileColor: primary.color,
+          secondaryProfileName: secondary?.name || null,
+          strengths: primary.strengths,
+          challenges: primary.challenges,
+          adaptations: primary.infantiaAdaptation,
+          scores,
+          confidence,
+        }),
+      });
+      const json = await resp.json();
+      if (json.success) {
+        setEmailStatus('sent');
+      } else {
+        throw new Error(json.error || 'unknown');
+      }
+    } catch (err) {
+      console.warn('Email send failed:', err);
+      setEmailStatus('error');
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -392,6 +464,8 @@ export function AnalysisDetailPage({ onLoginClick }: { onLoginClick: () => void 
             childName={analysis.childName}
             childAge={analysis.childAge}
             completedAt={analysis.completedAt}
+            emailStatus={emailStatus}
+            onSendEmail={handleSendEmail}
           />
         )}
       </div>

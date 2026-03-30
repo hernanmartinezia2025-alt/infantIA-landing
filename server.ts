@@ -168,9 +168,6 @@ async function startServer() {
       return;
     }
 
-    // In testing mode, redirect all emails to the override address
-    const toEmail: string = process.env.TEST_EMAIL_OVERRIDE || email;
-
     try {
       const html = buildEmailHtml({
         childName, childAge,
@@ -182,8 +179,8 @@ async function startServer() {
       });
 
       const { data, error } = await resend.emails.send({
-        from: 'InfantIA <onboarding@resend.dev>',
-        to: toEmail,
+        from: 'InfantIA <noreply@infantia.kids>',
+        to: email,
         subject: `🧠 El perfil de aprendizaje de ${childName} está listo`,
         html,
       });
@@ -194,7 +191,7 @@ async function startServer() {
         return;
       }
 
-      console.log(`✉️  Email sent to ${toEmail}${toEmail !== email ? ` (overriding ${email})` : ''} — id: ${data?.id}`);
+      console.log(`✉️  Email sent to ${email} — id: ${data?.id}`);
       res.json({ success: true, id: data?.id });
     } catch (err: any) {
       console.error('Email send failed:', err);

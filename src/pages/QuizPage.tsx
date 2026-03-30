@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ChevronLeft, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, RotateCcw, CheckCircle, AlertCircle, Mail } from 'lucide-react';
 import { auth, db, doc, setDoc, collection } from '../firebase';
 import { serverTimestamp, orderBy, limit, query, where, getDocs } from 'firebase/firestore';
 import {
@@ -86,11 +86,11 @@ function ScoreBar({ label, score, color }: { label: string; score: number; color
 function IntroPhase({
   childName, setChildName,
   childAge, setChildAge,
-  onStart, isLoggedIn, prefilled
+  onStart, onDebugComplete, isLoggedIn, prefilled
 }: {
   childName: string; setChildName: (v: string) => void;
   childAge: string; setChildAge: (v: string) => void;
-  onStart: () => void; isLoggedIn: boolean; prefilled: boolean;
+  onStart: () => void; onDebugComplete: () => void; isLoggedIn: boolean; prefilled: boolean;
 }) {
   const ageNum = childAge ? parseInt(childAge, 10) : null;
   const ageRange = ageNum ? getAgeRange(ageNum) : null;
@@ -175,6 +175,14 @@ function IntroPhase({
         className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-xl px-12 py-4 rounded-2xl shadow-xl shadow-indigo-200/50 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-3 mx-auto"
       >
         Comenzar el test <ChevronRight size={24} />
+      </button>
+
+      {/* ── DEBUG ONLY — remove before production ── */}
+      <button
+        onClick={onDebugComplete}
+        className="mt-6 text-xs text-slate-400 hover:text-red-500 underline underline-offset-2 transition-colors"
+      >
+        [DEBUG] Auto-completar quiz (valor 2, sin guardar en DB)
       </button>
     </motion.div>
   );
@@ -274,13 +282,14 @@ function QuestionsPhase({
 // ─── Phase 3: Results ────────────────────────────────────────
 
 function ResultsPhase({
-  result, childName, isSaving, saveError, emailStatus, onReset
+  result, childName, isSaving, saveError, emailStatus, onSendEmail, onReset
 }: {
   result: ProfileResult;
   childName: string;
   isSaving: boolean;
   saveError: string | null;
   emailStatus: 'idle' | 'sending' | 'sent' | 'error';
+  onSendEmail: () => void;
   onReset: () => void;
 }) {
   const { primary, secondary, scores, confidence, ageRange } = result;
@@ -334,7 +343,15 @@ function ResultsPhase({
         </div>
       )}
 
-      {/* Email status */}
+      {/* Email send button / status */}
+      {emailStatus === 'idle' && (
+        <button
+          onClick={onSendEmail}
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-2xl transition-all mb-6"
+        >
+          <Mail size={18} /> Enviar análisis a mi correo
+        </button>
+      )}
       {emailStatus === 'sending' && (
         <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-2xl px-5 py-4 mb-6 text-sky-700 font-medium">
           <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
@@ -520,6 +537,29 @@ export function QuizPage() {
     setPhase('questions');
   };
 
+  // ── DEBUG ONLY — remove before production ──
+  const handleDebugComplete = () => {
+    const name = childName.trim() || 'Debug';
+    const age = parseInt(childAge, 10) || 5;
+    const range = getAgeRange(age) || '5-6';
+
+    setChildName(name);
+    setChildAge(String(age));
+    setAgeRange(range);
+
+    const questions = QUESTIONS_BY_AGE_RANGE[range];
+    const debugAnswers: Record<string, AnswerValue> = {};
+    questions.forEach(q => { debugAnswers[q.id] = 2; });
+
+    setAnswers(debugAnswers);
+
+    const scores = calculateScores({ ageRange: range, answers: debugAnswers, questions });
+    const profileResult = resolveProfiles(scores, range);
+    setResult(profileResult);
+    setPhase('results');
+    // Intentionally skipping saveResult — debug mode
+  };
+
   const handleAnswer = (id: string, value: AnswerValue) => {
     setAnswers(prev => ({ ...prev, [id]: value }));
   };
@@ -531,14 +571,13 @@ export function QuizPage() {
     const profileResult = resolveProfiles(scores, ageRange);
     setResult(profileResult);
     setPhase('results');
-    await saveAndEmail(profileResult, scores);
+    await saveResult(profileResult, scores);
   };
 
-  const saveAndEmail = async (profileResult: ProfileResult, scores: DimensionScores) => {
+  const saveResult = async (profileResult: ProfileResult, scores: DimensionScores) => {
     const user = auth.currentUser;
     if (!user || !ageRange) return;
 
-    // ── 1. Firestore save ──
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -570,13 +609,15 @@ export function QuizPage() {
     } finally {
       setIsSaving(false);
     }
+  };
 
-    // ── 2. Send email ──
-    if (!user.email) return;
+  const handleSendEmail = async () => {
+    const user = auth.currentUser;
+    if (!user?.email || !result || !ageRange) return;
 
     setEmailStatus('sending');
     try {
-      const { primary, secondary, confidence } = profileResult;
+      const { primary, secondary, confidence, scores } = result;
       const resp = await fetch('/api/send-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -633,6 +674,7 @@ export function QuizPage() {
               childAge={childAge}
               setChildAge={setChildAge}
               onStart={handleStart}
+              onDebugComplete={handleDebugComplete}
               isLoggedIn={!!auth.currentUser}
               prefilled={prefilled}
             />
@@ -658,6 +700,7 @@ export function QuizPage() {
               isSaving={isSaving}
               saveError={saveError}
               emailStatus={emailStatus}
+              onSendEmail={handleSendEmail}
               onReset={handleReset}
             />
           )}

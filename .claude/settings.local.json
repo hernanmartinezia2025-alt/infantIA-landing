@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Users/Usuario/Desktop/infantia-main/infantIA-landing -type f \\\\\\(-name *db* -o -name *config* -o -name *service*account* \\\\\\))"
+      "Bash(find /c/Users/Usuario/Desktop/infantia-main/infantIA-landing -type f \\\\\\(-name *db* -o -name *config* -o -name *service*account* \\\\\\))",
+      "Bash(find c:/Users/Usuario/Desktop/infantia-main/infantIA-landing/node_modules -name react-types.d.ts -o -name index.d.ts -path */react/*)",
+      "Bash(grep -r IntrinsicAttributes c:/Users/Usuario/Desktop/infantia-main/infantIA-landing/node_modules --include=*.d.ts -l)",
+      "Bash(grep -r \"IntrinsicAttributes\\\\|namespace JSX\" c:/Users/Usuario/Desktop/infantia-main/infantIA-landing/node_modules/motion/dist --include=*.d.ts)",
+      "Bash(find c:/Users/Usuario/Desktop/infantia-main/infantIA-landing/node_modules/motion -name *.d.ts)"
     ]
   }
 }
